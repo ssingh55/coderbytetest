@@ -73,36 +73,6 @@ pipeline {
                 }
             }
         }
-
-        stage ('Deploy to EKS') {
-            steps {
-                // withAWS(credentials: AWS_CREDENTIALS_ID, region: AWS_REGIONS) {
-                withCredentials([usernamePassword(
-                    credentialsId: AWS_CREDENTIALS_ID,
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
-                    sh """
-                        aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGIONS}
-                        kubectl set image deployment/app app=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGIONS}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
-                        kubectl rollout status deployment/app
-                    """
-                }
-                // withAWS([[
-                //     $class: 'AmazonWebServicesCredentialsBinding',
-                //     credentialsId: "${AWS_CREDENTIALS_ID}",
-                //     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                //     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                // ]]) {
-                //     sh """
-                //         aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGIONS}
-                //         kubectl set image deployment/app
-                //         app=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGIONS}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}
-                //         kubectl rollout status deployment/app
-                //     """
-                // }
-            }
-        }
     }
     post {
         success {
