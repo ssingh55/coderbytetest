@@ -100,13 +100,13 @@ pipeline {
                             
                             # Validate Kubernetes manifests
                             kubectl apply --dry-run=client -f k8s/
-
-                            # Update image in deployment
-                            kubectl set image deployment/${APP_NAME} ${APP_NAME}=${env.IMAGE_NAME}:${IMAGE_TAG}
                             
                             # Apply all configurations
                             kubectl apply -f k8s/
-                            
+
+                            # Update image in deployment
+                            kubectl set image deployment/${APP_NAME} ${APP_NAME}=${env.IMAGE_NAME}:${IMAGE_TAG}
+
                             # Wait for rollout with increased timeout
                             kubectl rollout status deployment/${APP_NAME} --timeout=300s
                         """
