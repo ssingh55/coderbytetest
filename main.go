@@ -7,7 +7,7 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("A simple web application running on 8080 port")
+	fmt.Println("A simple web application running on 8080 ports")
 	fmt.Fprintln(w, "Hello World!")
 }
 
