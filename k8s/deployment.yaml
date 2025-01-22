@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nodejs-app
+  name: nodejs-app-v2
   labels:
-    app: nodejs-app
+    app: nodejs-app-v2
 spec:
   replicas: 2
   strategy:
@@ -13,14 +13,14 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app: nodejs-app
+      app: nodejs-app-v2
   template:
     metadata:
       labels:
-        app: nodejs-app
+        app: nodejs-app-v2
     spec:
       containers:
-        - name: nodejs-app
+        - name: nodejs-app-v2
           image: ${ECR_REPOSITORY}:latest
           ports:
             - containerPort: 8080
@@ -28,7 +28,7 @@ spec:
             - name: VERSION
               valueFrom:
                 configMapKeyRef:
-                  name: nodejs-config
+                  name: nodejs-config-v2
                   key: VERSION
           resources:
             requests:

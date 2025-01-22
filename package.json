@@ -1,10 +1,10 @@
 {
-    "name": "nodejs-kubernetes-app",
+    "name": "nodejs-app-v2",
     "version": "1.0.0",
-    "description": "Node.js application for Kubernetes deployment",
-    "main": "server.js",
+    "description": "Enhanced Node.js application for Kubernetes deployment",
+    "main": "app.js",
     "scripts": {
-      "start": "node server.js",
+      "start": "node app.js",
       "test": "echo \"Warning: No tests specified\" && exit 0"
     },
     "dependencies": {
