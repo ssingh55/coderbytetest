@@ -1,0 +1,174 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = "us-east-1"
+        APP_NAME = "nodejs-app-v2"
+        ECR_REPOSITORY = "nodejs-app-v2"
+        AWS_CREDENTIALS_ID = 'aws-credentials'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        EKS_CLUSTER_NAME = "k8s-cluster"
+        SONAR_PROJECT_KEY = "nodejs-app-v2"
+    }
+
+    options {
+        timeout(time: 1, unit: 'HOURS')
+        disableConcurrentBuilds()
+        ansiColor('xterm')
+    }
+
+    triggers {
+        pollSCM('*/5 * * * *')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Security Scan') {
+            steps {
+                sh 'npm audit'
+            }
+        }
+
+        stage('Install dependencies') {
+            steps {
+                sh 'npm ci'
+            }
+        }
+
+        stage('Run tests') {
+            steps {
+                sh 'npm test'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            when { branch 'main' }
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh """
+                        sonar-scanner \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.sources=. \
+                        -Dsonar.exclusions=node_modules/**
+                    """
+                }
+            }
+        }
+
+        stage('AWS Configuration') {
+            steps {
+                withCredentials([
+                    aws(credentialsId: AWS_CREDENTIALS_ID, region: AWS_REGION)
+                ]) {
+                    script {
+                        def accountId = sh(
+                            script: 'aws sts get-caller-identity --query Account --output text',
+                            returnStdout: true
+                        ).trim()
+                        env.AWS_ACCOUNT_ID = accountId
+                        env.ECR_REGISTRY = "${accountId}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+                        env.IMAGE_NAME = "${env.ECR_REGISTRY}/${ECR_REPOSITORY}"
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push Docker Image') {
+            steps {
+                withCredentials([
+                    aws(credentialsId: AWS_CREDENTIALS_ID, region: AWS_REGION)
+                ]) {
+                    script {
+                        sh """
+                            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${env.ECR_REGISTRY}
+                            docker build -t ${env.IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile-v2 .
+                            docker scan ${env.IMAGE_NAME}:${IMAGE_TAG} || true
+                            docker push ${env.IMAGE_NAME}:${IMAGE_TAG}
+                            docker tag ${env.IMAGE_NAME}:${IMAGE_TAG} ${env.IMAGE_NAME}:latest
+                            docker push ${env.IMAGE_NAME}:latest
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to EKS') {
+            steps {
+                withCredentials([
+                    aws(credentialsId: AWS_CREDENTIALS_ID, region: AWS_REGION)
+                ]) {
+                    script {
+                        sh """
+                            aws eks update-kubeconfig --name ${EKS_CLUSTER_NAME} --region ${AWS_REGION}
+                            
+                            # Validate Kubernetes manifests
+                            kubectl apply --dry-run=client -f k8s/
+
+                            # Update image in deployment
+                            kubectl set image deployment/${APP_NAME} ${APP_NAME}=${env.IMAGE_NAME}:${IMAGE_TAG}
+                            
+                            # Apply all configurations
+                            kubectl apply -f k8s/
+                            
+                            # Wait for rollout with increased timeout
+                            kubectl rollout status deployment/${APP_NAME} --timeout=300s
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    sh """
+                        # Wait for pods to be ready
+                        kubectl wait --for=condition=ready pod -l app=${APP_NAME} --timeout=300s
+                        
+                        # Get deployment status
+                        kubectl get deployment ${APP_NAME} -o wide
+                        
+                        # Get service status
+                        kubectl get service ${APP_NAME} -o wide
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                def deploymentUrl = sh(
+                    script: "kubectl get service ${APP_NAME} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
+                    returnStdout: true
+                ).trim()
+                echo "Application deployed successfully!"
+                echo "Access the application at: http://${deploymentUrl}"
+            }
+        }
+        failure {
+            echo 'Pipeline failed! Check logs for details.'
+            
+            // Notify on failure
+            emailext (
+                subject: "Pipeline Failed: ${env.JOB_NAME} [${env.BUILD_NUMBER}]",
+                body: "Check console output at ${env.BUILD_URL}",
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+            )
+        }
+        always {
+            // Clean up Docker images
+            sh """
+                docker rmi ${env.IMAGE_NAME}:${IMAGE_TAG} || true
+                docker rmi ${env.IMAGE_NAME}:latest || true
+                docker system prune -f || true
+            """
+        }
+    }
+}

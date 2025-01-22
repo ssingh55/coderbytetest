@@ -5,7 +5,12 @@ metadata:
   labels:
     app: nodejs-app
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: nodejs-app
@@ -19,6 +24,12 @@ spec:
           image: ${ECR_REPOSITORY}:latest
           ports:
             - containerPort: 8080
+          env:
+            - name: VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: nodejs-config
+                  key: VERSION
           resources:
             requests:
               memory: "64Mi"
@@ -28,13 +39,13 @@ spec:
               cpu: "200m"
           livenessProbe:
             httpGet:
-              path: /
+              path: /health
               port: 8080
             initialDelaySeconds: 5
-            periodSeconds: 5
+            periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /
+              path: /health
               port: 8080
             initialDelaySeconds: 5
-            periodSeconds: 5
+            periodSeconds: 10
