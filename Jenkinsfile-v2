@@ -22,7 +22,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'feat/dockerEks',
+                git branch: 'master',
                     url: 'https://github.com/ssingh55/coderbytetest.git'
             }
         }
