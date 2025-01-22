@@ -1,0 +1,13 @@
+{
+    "name": "nodejs-app-v2",
+    "version": "1.0.0",
+    "description": "Enhanced Node.js application for Kubernetes deployment",
+    "main": "app.js",
+    "scripts": {
+      "start": "node app.js",
+      "test": "echo \"Warning: No tests specified\" && exit 0"
+    },
+    "dependencies": {
+      "express": "^4.18.2"
+    }
+  }

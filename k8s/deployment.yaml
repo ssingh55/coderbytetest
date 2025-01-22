@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodejs-app-v2
+  labels:
+    app: nodejs-app-v2
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: nodejs-app-v2
+  template:
+    metadata:
+      labels:
+        app: nodejs-app-v2
+    spec:
+      containers:
+        - name: nodejs-app-v2
+          image: ${ECR_REPOSITORY}:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: nodejs-config-v2
+                  key: VERSION
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
