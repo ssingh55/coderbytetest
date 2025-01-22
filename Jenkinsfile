@@ -4,9 +4,6 @@ pipeline {
     environment {
         AWS_REGIONS = "us-east-1"
         ECR_REPOSITORY = "coderbytetest"
-        // AWS_ACCOUNT_ID = credentials('081006037460')
-        // AWS_ACCESS_KEY_ID = credentials('aws-access-key-id')
-        // AWS_SECRET_ACCESS_KEY = credentials('aws-secret-key') 
         AWS_CREDENTIALS_ID = 'aws-credential'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         EKS_CLUSTER_NAME = "k8s-cluster"
@@ -25,14 +22,12 @@ pipeline {
 
         stage('Initialize Go module') {
             steps {
-                // sh 'go mod init main'
                 sh 'go mod tidy'
             }
         }
 
         stage('Configure AWS & LOgin to ECR') {
             steps {
-                // withAWS(region: "${AWS_REGIONS}", credentials: "${AWS_CREDENTIALS_ID}") {
                 withCredentials([usernamePassword(
                     credentialsId: AWS_CREDENTIALS_ID,
                     usernameVariable: 'AWS_ACCESS_KEY_ID',
@@ -57,7 +52,6 @@ pipeline {
 
         stage('Push the image to ECR') {
             steps {
-                // withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGIONS}") {
                 withCredentials([usernamePassword(
                     credentialsId: AWS_CREDENTIALS_ID,
                     usernameVariable: 'AWS_ACCESS_KEY_ID',
